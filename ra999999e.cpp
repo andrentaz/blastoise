@@ -133,7 +133,7 @@ bool brach_and_bound999999(TSP_Data_R &tsp, const vector<DNode> &terminais, cons
         }
 
         // Limitante inferior e superior do modelo
-        lbound = model.get(GRB_DoubleAttr_ObjBoundC);
+        //lbound = model.get(GRB_DoubleAttr_ObjBoundC);
 
         if( model.get(GRB_IntAttr_SolCount) <= 0 ){
             cout << "Modelo nao encontrou nenhuma solucao viavel no tempo. LowerBound = " << lbound << endl;
