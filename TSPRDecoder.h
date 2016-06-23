@@ -1,4 +1,4 @@
-/*
+/**
  * TSPR Decoder
  *
  * Created on: Jun 22, 2016
@@ -13,7 +13,7 @@
 
 class TSPRDecoder {
 public:
-    TSPRDecoder(TSP_Data &tsp,
+    TSPRDecoder(TSP_Data_R &tsp,
         const vector<DNode> &terminais, 
         const vector<DNode> &postos,
         const DNode source,
@@ -25,7 +25,7 @@ public:
     vector<DNode> getSolution();
     
 private:
-    const TSP_Data& instance;
+    const TSP_Data_R& instance;
     const vector<DNode> &terminais;    
     const vector<DNode> &postos;    
     const DNode source;

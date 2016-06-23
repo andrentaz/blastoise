@@ -1,4 +1,4 @@
-/*
+/**
  * TSPRSolver.h
  *
  *  Created on: Jun 22, 2016
@@ -16,7 +16,7 @@ class TSPRSolver {
 public:
     // The constructor "solves" the problem in O (n log n) by transforming
     // the chromossome into a tour (get a permutation from the chromossome)
-    TSPSolver(const TSP_Data& instance,
+    TSPSolver(const TSP_Data_R& instance,
         const vector<DNode> &terminais,
         const vector<DNode> &postos,
         const DNode source,
@@ -25,18 +25,18 @@ public:
     virtual ~TSPSolver();
     
     // Returns the tour distance (fitness)
-    unsigned getTourDistance() const;
+    double getTourDistance() const;
     // Returns the tour
     vector< DNode > getTour() const;
 
 private:
     typedef pair< double, unsigned> ValueKeyPair;
     
-    unsigned distance;
+    double distance;
     vector< DNode > tour;
     
-    bool cook(TSP_Data& instance, vector<DNode>& ftour, const vector<DNode>& postos, const int delta);
-    bool rerout(TSP_Data& instance, list<DNode> list, vector<DNode>& postos, DNode u, DNode v, double delta);
+    bool cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta);
+    bool rerout(TSP_Data_R& instance, list<DNode> list, vector<DNode>& postos, DNode u, DNode v, double delta);
 };
 
 #endif

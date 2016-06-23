@@ -1,4 +1,4 @@
-/*
+/**
  * TSPRDecoder.cpp
  *
  *  Created on: 22 Jun, 2016
@@ -6,7 +6,7 @@
  
 #include "TSPRDecoder.h"
 
-TSPRDecoder::TSPRDecoder(TSP_Data &_instance,
+TSPRDecoder::TSPRDecoder(TSP_Data_R &_instance,
         const vector<DNode> &_terminais, 
         const vector<DNode> &_postos,
         const DNode _source,
@@ -20,10 +20,10 @@ double TSPRDecoder::decode(const vector< double >& chromossome) const {
     TSPRSolver solver(instance, terminais, postos, source, delta, chromossome);
     
     // 2) Extract the fitness
-    const unsigned fitness = solver.getTourDistance();
+    const double fitness = solver.getTourDistance();
     
     // 3) Return
-    return double(fitness);
+    return fitness;
 }
 
 vector<DNode> getSolution() {

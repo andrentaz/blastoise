@@ -1,4 +1,4 @@
-/*
+/**
  * TSPRSolver.cpp
  *
  *  Created on: Jun 22, 2016
@@ -9,7 +9,7 @@
 using namespace std;
 using namespace lemon;
 
-TSPRSolver::TSPRSolver(const TSP_Data& instance, const vector<DNode>& terminais, 
+TSPRSolver::TSPRSolver(const TSP_Data_R& instance, const vector<DNode>& terminais, 
     const vector<DNode>& postos, const DNode source, const int delta, const vector< double >& chromossome) :
     distance(0) {
     
@@ -31,28 +31,32 @@ TSPRSolver::TSPRSolver(const TSP_Data& instance, const vector<DNode>& terminais,
     this->tour.push_back(source);
     
     // 3) Transforms the rawtour in a feasible one
-    cook(this->tour, postos, delta);
-    
-    // 4) Compute the distance of the rawtour given by the permutation
-    for (unsigned i=1; i<this->tour.size(); ++i) {
-        // Get the nodes
-        const DNode u = this->tour[i-1];
-        const DNode v = this->tour[i];
-        
-        // Calculate the distance
-        distance += tsp.AdjMatD.Cost(u,v);
+    if (cook(instance, postos, delta)) {
+
+        // 4) Compute the distance of the tour given by the permutation and cooking
+        for (unsigned i=1; i<this->tour.size(); ++i) {
+            // Get the nodes
+            const DNode u = this->tour[i-1];
+            const DNode v = this->tour[i];
+            
+            // Calculate the distance
+            distance += tsp.AdjMatD.Cost(u,v);
+        }
+    } else {
+        // Problems doing the solution
+        distance = DBL_MAX;
     }
     
 }
 
 /* Get the raw solution and turns into a feasible tour */
-bool TSPRSolver::cook(TSP_Data& instance, vector<DNode>& ftour, const vector<DNode>& postos, const int delta) {
+bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta) {
     int fuelUsed = 0.0;
     bool retVal = true;
     list<DNode> listTour;
     
     // Simple copy the tour into a list
-    for (auto u : ftour ) {
+    for (auto u : this->tour ) {
         listTour.push_back(u);
     }
     
@@ -80,7 +84,7 @@ bool TSPRSolver::cook(TSP_Data& instance, vector<DNode>& ftour, const vector<DNo
 TSPRSolver::~TSPRSolver() { }
 
 /* Insert a fuel station to respect the fuel limit */
-void rerout(TSP_Data& instance, list<DNode> tourlist, vector<DNode>& postos, DNode u, DNode v, double delta) {
+void rerout(TSP_Data_R& instance, list<DNode> tourlist, vector<DNode>& postos, DNode u, DNode v, double delta) {
     vector<DNode> pp;
     bool retVal = false;
     DNode x = NULL;
@@ -118,6 +122,6 @@ void rerout(TSP_Data& instance, list<DNode> tourlist, vector<DNode>& postos, DNo
     return retVal;
 }
 
-unsigned TSPRSolver::getTourDistance() const { return distance; }
+double TSPRSolver::getTourDistance() const { return distance; }
 
 vector< DNode > TSPRSolver::getTour() const { return tour; }
