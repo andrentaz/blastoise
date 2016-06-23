@@ -31,6 +31,8 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
 
     // Inicializa as variaveis que serao utilizadas
     const clock_t begin = clock();
+    
+    const DNode s = source;
 
     // Decoder
     TSPRDecoder decoder(tsp, terminais, postos, source, delta);
@@ -49,11 +51,16 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
 
     // inicializa a heuristica BRKGA
     BRKGA< TSPRDecoder, MTRand > algorithm(n, p, pe, pm, rhoe, decoder, rng, K, MAXT);
+    
+    // BRKGA inner loop (evolution) configuration: Exchange top individuals
+	const unsigned X_INTVL = 100;	// troca os melhores individuos a cada 100 geracoes
+	const unsigned X_NUMBER = 2;	// troca os dois melhores
+	const unsigned MAX_GENS = 1000;	// roda para 1000 geracoes 
 
     // configuracao de evolucao do BRKGA: estrategia de restart
     unsigned relevantGeneration = 1;    // ultima geracao relevante
     const unsigned RESET_AFTER = 2000;
-    vector< double > bestChromossome;
+    vector< double > bestChromosome;
     double bestFitness = std::numeric_limits< double >::max();
 
     // Imprime informacoes sobre o multi-threading
@@ -77,7 +84,7 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
             // Salva a melhgor solucao para usar depois na cadeia evolutiva
             relevantGeneration = generation;
             bestFitness = algorithm.getBestFitness();
-            bestChromossome = algorithm.getBestChromossome();
+            bestChromosome = algorithm.getBestChromosome();
 
             cout << "\t" << generation
                 << ") Improved best solution so far: "
@@ -117,7 +124,7 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
 	}
 
     // Reconstroi a melhor solucao
-    TSPRSolver bestSolution (tsp, bestChromossome);
+    TSPRSolver bestSolution (tsp, terminais, postos, s, delta, bestChromosome);
     bool retVal;
 
     // Se encontrou solucao reconstroi

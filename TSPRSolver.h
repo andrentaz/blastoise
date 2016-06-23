@@ -12,17 +12,20 @@
 #include <vector>
 #include <algorithm>
 
+#include "mygraphlib.h"
+#include "algoritmos.h"
+
 class TSPRSolver {
 public:
     // The constructor "solves" the problem in O (n log n) by transforming
-    // the chromossome into a tour (get a permutation from the chromossome)
-    TSPSolver(const TSP_Data_R& instance,
+    // the chromosome into a tour (get a permutation from the chromosome)
+    TSPRSolver(TSP_Data_R& instance,
         const vector<DNode> &terminais,
         const vector<DNode> &postos,
         const DNode source,
-        const int delta,
-        const vector< double >& chromossome);
-    virtual ~TSPSolver();
+        int delta,
+        const vector< double >& chromosome);
+    virtual ~TSPRSolver();
     
     // Returns the tour distance (fitness)
     double getTourDistance() const;
@@ -35,8 +38,8 @@ private:
     double distance;
     vector< DNode > tour;
     
-    bool cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta);
-    bool rerout(TSP_Data_R& instance, list<DNode> list, vector<DNode>& postos, DNode u, DNode v, double delta);
+    bool cook(TSP_Data_R& instance, const vector<DNode>& postos, int delta);
+    bool rerout(TSP_Data_R& instance, list<DNode> list, const vector<DNode>& postos, DNode u, DNode v, double delta);
 };
 
 #endif

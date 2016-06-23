@@ -7,9 +7,15 @@
 #ifndef TSPRDECODER_H
 #define TSPRDECODER_H
 
-#include "TSPRSolver.h"
-#include "TSPRInstance.h"
+#include <vector>
 #include <lemon/list_graph.h>
+
+#include "mygraphlib.h"
+#include "TSPRSolver.h"
+#include "algoritmos.h"
+
+using namespace lemon;
+using namespace std;
 
 class TSPRDecoder {
 public:
@@ -17,15 +23,14 @@ public:
         const vector<DNode> &terminais, 
         const vector<DNode> &postos,
         const DNode source,
-        const int delta);
+        int delta);
     virtual ~TSPRDecoder();
     
-    // Decodes the chromossome into a solution to the TSP
-    double decode(const vector< double >& chromossome) const;
-    vector<DNode> getSolution();
+    // Decodes the chromosome into a solution to the TSP
+    double decode(const vector< double >& chromosome) const;
     
 private:
-    const TSP_Data_R& instance;
+    TSP_Data_R& instance;
     const vector<DNode> &terminais;    
     const vector<DNode> &postos;    
     const DNode source;

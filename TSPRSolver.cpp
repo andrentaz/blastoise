@@ -9,16 +9,16 @@
 using namespace std;
 using namespace lemon;
 
-TSPRSolver::TSPRSolver(const TSP_Data_R& instance, const vector<DNode>& terminais, 
-    const vector<DNode>& postos, const DNode source, const int delta, const vector< double >& chromossome) :
+TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais, 
+    const vector<DNode>& postos, const DNode source, int delta, const vector< double >& chromosome) :
     distance(0) {
     
     vector< ValueKeyPair > rawtour;
     
-    // Assumes that instance.getNumNodes() == chromossome.size()
+    // Assumes that instance.getNumNodes() == chromosome.size()
     
-    // 1) Obtain a permutation out of the chromossome -- this is the raw tour:
-    for (unsigned i=0; i<chromossome.size(); ++i) { rawtour[i] = ValueKeyPair(chromossome[i], i); }
+    // 1) Obtain a permutation out of the chromosome -- this is the raw tour:
+    for (unsigned i=0; i<chromosome.size(); ++i) { rawtour[i] = ValueKeyPair(chromosome[i], i); }
     
     // sort 'rank', which will produce a permutation of [n] stored in ValueKeyPair::second:
     sort(rawtour.begin(), rawtour.end());
@@ -40,7 +40,7 @@ TSPRSolver::TSPRSolver(const TSP_Data_R& instance, const vector<DNode>& terminai
             const DNode v = this->tour[i];
             
             // Calculate the distance
-            distance += tsp.AdjMatD.Cost(u,v);
+            distance = distance + instance.AdjMatD.Cost(u,v);
         }
     } else {
         // Problems doing the solution
@@ -61,13 +61,21 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
     }
     
     // Starting from the second position in the list
-    for (list<DNode>::iterator it=listTour.begin()+1; it != listTour.end(); ++it) {
+    DNode u = *(listTour.begin());
+    DNode v;
+    
+    // VAI SE FUDER C++
+    list<DNode>::iterator it=listTour.begin(); ++it;
+    for (; it != listTour.end(); ++it) {
+        // assign v
+        v = *it;
+        
         // check the distance from the previous node
-        if (fuelUsed + instance.AdjMatD.Cost(*(it-1), *it) < delta) {
-            fuelUsed += instance.AdjMatD.Cost(*(it-1), *it);
+        if (fuelUsed + instance.AdjMatD.Cost(u,v) < delta) {
+            fuelUsed += instance.AdjMatD.Cost(u,v);
         } else {
             // limit would be passed, rerout
-            if (rerout(instance, listTour, postos, u, v, (delta-fuelUsed))) {
+            if (rerout(instance, listTour, postos, u, v, double(delta-fuelUsed))) {
               // reset the fuel used
               fuelUsed = 0.0;
             } else {
@@ -76,6 +84,9 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
                 break;
             }
         }
+        
+        // assign u
+        u = v;
     }
     
     return retVal;    
@@ -84,10 +95,10 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
 TSPRSolver::~TSPRSolver() { }
 
 /* Insert a fuel station to respect the fuel limit */
-void rerout(TSP_Data_R& instance, list<DNode> tourlist, vector<DNode>& postos, DNode u, DNode v, double delta) {
+bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode> tourlist, const vector<DNode>& postos, DNode u, DNode v, double delta) {
     vector<DNode> pp;
     bool retVal = false;
-    DNode x = NULL;
+    DNode x;
     
     // Take the feasible fuel station from u
     for (auto p : postos) {
@@ -106,7 +117,7 @@ void rerout(TSP_Data_R& instance, list<DNode> tourlist, vector<DNode>& postos, D
     }
     
     // there are no reachable fuel station
-    if (x!=NULL) {        
+    if (min == DBL_MAX) {        
         // insert in the list
         for (list<DNode>::iterator it=tourlist.begin(); it!=tourlist.end(); ++it) {
             // Find the node

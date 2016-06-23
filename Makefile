@@ -24,6 +24,7 @@ ifeq ($(shell uname), Darwin)
 	endif
 	CC      = g++
 	#CC_ARGS    = -Wall -m64 -O3 -Wall $(CPPSTDLIB)  -Wno-c++11-extensions
+	#CC_ARGS    = -m64 -O2 -Wall -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=0 
 	CC_ARGS    = -m64 -O2 -Wall -std=c++11 -D_GLIBCXX_USE_CXX11_ABI=0 
 	RELEASE := $(shell uname -r | cut -f 1 -d .)
 	CC_LIB   = -lm -lpthread $(CPPSTDLIB)
@@ -59,7 +60,7 @@ LIB = $(CC_LIB) $(GUROBI_LIB)  $(LEMONLIBDIR) -lemon
 # g++ -m64 -g -o exe readgraph.cpp viewgraph.cpp adjacencymatrix.cpp ex_fractional_packing.o -I/Library/gurobi600/mac64/include/ -L/Library/gurobi600/mac64/lib/ -lgurobi_c++ -lgurobi60 -stdlib=libstdc++ -lpthread -lm
 # g++ -m64 -g -c adjacencymatrix.cpp -o adjacencymatrix.o -I/Library/gurobi600/mac64/include/  -stdlib=libstdc++ 
 
-MYLIBSOURCES = mygraphlib.cpp geompack.cpp myutils.cpp tspr.cpp ra999999e.cpp ra999999hv.cpp ra999999hg.cpp ra999999h.cpp
+MYLIBSOURCES = mygraphlib.cpp geompack.cpp myutils.cpp tspr.cpp ra999999e.cpp ra999999hv.cpp ra999999hg.cpp ra999999h.cpp TSPRDecoder.cpp TSPRSolver.cpp
 MYOBJLIB = $(MYLIBSOURCES:.cpp=.o)
 
 #ex_ad_allocation.cpp
