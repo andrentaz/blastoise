@@ -15,6 +15,9 @@
 #include "mygraphlib.h"
 #include "algoritmos.h"
 
+// Define an new type of iterator
+typedef std::list<DNode>::iterator literator;
+
 class TSPRSolver {
 public:
     // The constructor "solves" the problem in O (n log n) by transforming
@@ -39,7 +42,7 @@ private:
     vector< DNode > tour;
     
     bool cook(TSP_Data_R& instance, const vector<DNode>& postos, int delta);
-    bool rerout(TSP_Data_R& instance, list<DNode> list, const vector<DNode>& postos, DNode u, DNode v, double delta);
+    bool rerout(TSP_Data_R& instance, list<DNode>& list, const vector<DNode>& postos, DNode u, DNode v, double delta);
 };
 
 #endif

@@ -56,9 +56,10 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
     int fuelUsed = 0.0;
     bool retVal = true;
     list<DNode> listTour;
+    // literator lit;
     
     // Simple copy the tour into a list
-    for (auto u : this->tour ) {
+    for (auto u : this->tour) {
         listTour.push_back(u);
     }
     
@@ -66,7 +67,7 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
     DNode u = *(listTour.begin());
     DNode v;
     
-    list<DNode>::iterator it=listTour.begin(); ++it;
+    literator it=listTour.begin(); ++it;
     for (; it != listTour.end(); ++it) {
         // assign v
         v = *it;
@@ -77,8 +78,10 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
         } else {
             // limit would be passed, rerout
             if (rerout(instance, listTour, postos, u, v, double(delta-fuelUsed))) {
-              // reset the fuel used
-              fuelUsed = 0.0;
+            // if (lit != listTour.end()) {
+                // reset the fuel used
+                fuelUsed = 0.0;
+                // it = lit;
             } else {
                 // some problem happened
                 retVal = false;
@@ -89,16 +92,23 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
         u = v;
     }
     
+    // refresh the tour
+    this->tour.clear();
+    for (auto i : listTour) {
+        this->tour.push_back(i);
+    }
+    
     return retVal;    
 }
 
 TSPRSolver::~TSPRSolver() { }
 
 /* Insert a fuel station to respect the fuel limit */
-bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode> tourlist, const vector<DNode>& postos, DNode u, DNode v, double delta) {
+bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode>& tourlist, const vector<DNode>& postos, 
+                        DNode u, DNode v, double delta) {
+    DNode x;
     vector<DNode> pp;
     bool retVal = false;
-    DNode x;
     
     // Take the feasible fuel station from u
     for (auto p : postos) {
@@ -117,17 +127,19 @@ bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode> tourlist, const vector
     }
     
     // there are no reachable fuel station
-    if (min == DBL_MAX) {        
+    if (min != DBL_MAX) {
         // insert in the list
-        for (list<DNode>::iterator it=tourlist.begin(); it!=tourlist.end(); ++it) {
+        for (literator it=tourlist.begin(); it!=tourlist.end(); ++it) {
             // Find the node
             if (*it == v) {
-                tourlist.insert(it, x);
+                // insert
+                it = tourlist.insert(it, x);
+                
+                // set the return val
+                retVal = true;
+                break;
             }
         }
-        
-        // set the return val
-        retVal = true;
     }
         
     return retVal;

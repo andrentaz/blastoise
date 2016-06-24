@@ -12,8 +12,15 @@
 using namespace lemon;
 using namespace std;
 
+
 // ********** ALTERE DAQUI PARA BAIXO (HEURISTICA GENETICA) *****************
 // Otimiza o problema TSP-R através de uma heurística baseada em BRKGA
+
+// Rodando com multiplas threads
+// #ifndef _OPENMP
+// #define _OPENMP
+// #include <omp>
+// #endif
 
 // Inclui a API do BRKGA
 #include <algorithm>
@@ -23,6 +30,9 @@ using namespace std;
 // Inclui o decoder
 #include "TSPRDecoder.h"
 #include "TSPRSolver.h"
+
+bool check_feasible(vector<DNode> sol, TSP_Data_R &tsp, const vector<DNode> &terminais, const vector<DNode> &postos, 
+                    const DNode source, int delta); 
 
 // ATENÇÃO: Não modifique a assinatura deste método.
 bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const vector<DNode> &postos,
@@ -46,16 +56,16 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
     const double pe = 0.10;     // fracao da populao que sera elite
     const double pm = 0.10;     // fracao da populacao que sera mutante
     const double rhoe = 0.70;   // probabilidade de herdar do pai elite
-    const unsigned K = 3;       // numero de populacoes independentes
-    const unsigned MAXT = 2;    // numero de threads para decode paralelo
+    const unsigned K = 5;       // numero de populacoes independentes
+    const unsigned MAXT = 3;    // numero de threads para decode paralelo
 
     // inicializa a heuristica BRKGA
     BRKGA< TSPRDecoder, MTRand > algorithm(n, p, pe, pm, rhoe, decoder, rng, K, MAXT);
     
     // BRKGA inner loop (evolution) configuration: Exchange top individuals
-	const unsigned X_INTVL = 100;	// troca os melhores individuos a cada 100 geracoes
-	const unsigned X_NUMBER = 2;	// troca os dois melhores
-	const unsigned MAX_GENS = 1000;	// roda para 1000 geracoes 
+	const unsigned X_INTVL = 100;	    // troca os melhores individuos a cada 100 geracoes
+	const unsigned X_NUMBER = 2;	    // troca os dois melhores
+	const unsigned MAX_GENS = 1000;	    // roda para 1000 geracoes 
 
     // configuracao de evolucao do BRKGA: estrategia de restart
     unsigned relevantGeneration = 1;    // ultima geracao relevante
@@ -146,10 +156,89 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
         retVal = false;
     }
     
+    // Checa para ver se de fato é uma solucao viavel
+    // Checando
+    cout << "Double checking the solution" << endl;
+    retVal = check_feasible(bestSolution.getTour(), tsp, terminais, postos, source, delta);
+        
+    if (retVal) {
+        cout << "Feasible solution" << endl;
+    }
+    
+    // Atribui para a solucao
+    sol = bestSolution.getTour();
 
 	const clock_t end = clock();
 	cout << "BRKGA run finished in " << (end - begin) / double(CLOCKS_PER_SEC) << " s." << endl;
 
     return retVal;
 }
+
+bool check_feasible(vector<DNode> sol, TSP_Data_R &tsp, const vector<DNode> &terminais, const vector<DNode> &postos, 
+                    const DNode source, int delta) {
+    bool retVal = true;
+    double fuelUsed = 0.0;
+    
+    vector<DNode> terminaisFaltantes = terminais;
+    
+    // Percorre o circuito
+    DNode u = *(sol.begin());
+    DNode v;
+    DNode lastStation = source;
+    vector<DNode>::iterator lts = sol.begin();
+    for (vector<DNode>::iterator it=sol.begin()+1; it!=sol.end(); ++it) {
+        bool isPosto = false;
+        v = *it;
+        
+        // soma com o combustivel ja gasto
+        fuelUsed += tsp.AdjMatD.Cost(u,v);
+        
+        // ve se nao ultrapassa o limite de combustivel
+        if (fuelUsed < delta) {
+            // ve se e um posto
+            for (auto p : postos) {
+                if (p==v) {
+                    lastStation = v;
+                    lts = it;
+                    fuelUsed = 0.0;
+                    u=v;
+                    isPosto = true;
+                    break;
+                }
+            }
+            
+            // se nao e posto e um terminal
+            if (!isPosto) {
+                for (auto t = terminaisFaltantes.begin(); t!=terminaisFaltantes.end(); ++t) {
+                    if (*t==v) { terminaisFaltantes.erase(t); u=v; break; }
+                }
+            }
+        } else {
+            cout << "Infeasible solution by fuel limit!" << endl;
+            
+            // imprime o trecho que estourou o limite de combustivel
+            for (;lts!=it; ++lts) {
+                cout << " " << tsp.g.id(*lts);
+            }
+            cout << "\tFuel used: " << fuelUsed << "\t Fuel limit: "
+                << delta << endl;
+            
+            retVal = false;
+            break;
+        }
+    }
+    
+    if (retVal && terminaisFaltantes.size() != 0) {
+        cout << "Infeasible solution for not covering all the terminals" << endl;
+        // imprime os terminais faltantes
+        for (auto t : terminaisFaltantes) {
+            cout << " " << tsp.g.id(t);
+        }
+        cout << endl;
+        retVal = false;
+    }
+    
+    return retVal;
+}
+
 // ********** ALTERE DAQUI PARA CIMA (HEURISTICA GENETICA) *****************
