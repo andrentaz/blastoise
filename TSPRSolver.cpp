@@ -18,7 +18,9 @@ TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais,
     // Assumes that instance.getNumNodes() == chromosome.size()
     
     // 1) Obtain a permutation out of the chromosome -- this is the raw tour:
-    for (unsigned i=0; i<chromosome.size(); ++i) { rawtour[i] = ValueKeyPair(chromosome[i], i); }
+    for (unsigned i=0; i<chromosome.size(); ++i) { 
+        rawtour.push_back(ValueKeyPair(chromosome[i], i)); 
+    }
     
     // sort 'rank', which will produce a permutation of [n] stored in ValueKeyPair::second:
     sort(rawtour.begin(), rawtour.end());
@@ -64,7 +66,6 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
     DNode u = *(listTour.begin());
     DNode v;
     
-    // VAI SE FUDER C++
     list<DNode>::iterator it=listTour.begin(); ++it;
     for (; it != listTour.end(); ++it) {
         // assign v
@@ -84,7 +85,6 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
                 break;
             }
         }
-        
         // assign u
         u = v;
     }
