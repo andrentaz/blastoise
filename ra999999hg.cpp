@@ -57,7 +57,7 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
     const double pm = 0.10;     // fracao da populacao que sera mutante
     const double rhoe = 0.70;   // probabilidade de herdar do pai elite
     const unsigned K = 5;       // numero de populacoes independentes
-    const unsigned MAXT = 3;    // numero de threads para decode paralelo
+    const unsigned MAXT = 4;    // numero de threads para decode paralelo
 
     // inicializa a heuristica BRKGA
     BRKGA< TSPRDecoder, MTRand > algorithm(n, p, pe, pm, rhoe, decoder, rng, K, MAXT);
@@ -65,7 +65,7 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
     // BRKGA inner loop (evolution) configuration: Exchange top individuals
 	const unsigned X_INTVL = 100;	    // troca os melhores individuos a cada 100 geracoes
 	const unsigned X_NUMBER = 2;	    // troca os dois melhores
-	const unsigned MAX_GENS = 1000;	    // roda para 1000 geracoes 
+	const unsigned MAX_GENS = 5000;	    // roda para 1000 geracoes 
 
     // configuracao de evolucao do BRKGA: estrategia de restart
     unsigned relevantGeneration = 1;    // ultima geracao relevante

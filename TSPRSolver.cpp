@@ -55,33 +55,30 @@ TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais,
 bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta) {
     int fuelUsed = 0.0;
     bool retVal = true;
-    list<DNode> listTour;
-    // literator lit;
-    
-    // Simple copy the tour into a list
-    for (auto u : this->tour) {
-        listTour.push_back(u);
-    }
+    vector<DNode> cooked;
+    double refuel;
     
     // Starting from the second position in the list
-    DNode u = *(listTour.begin());
+    DNode u = this->tour[0];
     DNode v;
     
-    literator it=listTour.begin(); ++it;
-    for (; it != listTour.end(); ++it) {
+    // initialize the new vector
+    cooked.push_back(u);
+    for (unsigned i=1; i<this->tour.size(); ++i) {
         // assign v
-        v = *it;
+        v = this->tour[i];
         
         // check the distance from the previous node
         if (fuelUsed + instance.AdjMatD.Cost(u,v) < delta) {
             fuelUsed += instance.AdjMatD.Cost(u,v);
+            cooked.push_back(v);
         } else {
             // limit would be passed, rerout
-            if (rerout(instance, listTour, postos, u, v, double(delta-fuelUsed))) {
-            // if (lit != listTour.end()) {
+            refuel = rerout(instance, cooked, postos, u, v, double(delta-fuelUsed));
+            if (refuel > 0) {
                 // reset the fuel used
-                fuelUsed = 0.0;
-                // it = lit;
+                fuelUsed = refuel;
+                cooked.push_back(v);
             } else {
                 // some problem happened
                 retVal = false;
@@ -93,22 +90,21 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
     }
     
     // refresh the tour
-    this->tour.clear();
-    for (auto i : listTour) {
-        this->tour.push_back(i);
+    if (retVal) {
+        this->tour = cooked;
     }
     
-    return retVal;    
+    return retVal;
 }
 
 TSPRSolver::~TSPRSolver() { }
 
 /* Insert a fuel station to respect the fuel limit */
-bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode>& tourlist, const vector<DNode>& postos, 
+double TSPRSolver::rerout(TSP_Data_R& instance, vector<DNode>& ctour, const vector<DNode>& postos, 
                         DNode u, DNode v, double delta) {
     DNode x;
     vector<DNode> pp;
-    bool retVal = false;
+    double retVal = -1.0;
     
     // Take the feasible fuel station from u
     for (auto p : postos) {
@@ -128,18 +124,10 @@ bool TSPRSolver::rerout(TSP_Data_R& instance, list<DNode>& tourlist, const vecto
     
     // there are no reachable fuel station
     if (min != DBL_MAX) {
-        // insert in the list
-        for (literator it=tourlist.begin(); it!=tourlist.end(); ++it) {
-            // Find the node
-            if (*it == v) {
-                // insert
-                it = tourlist.insert(it, x);
-                
-                // set the return val
-                retVal = true;
-                break;
-            }
-        }
+        // insert in the tour
+        ctour.push_back(x);
+        // set the return        
+        retVal = instance.AdjMatD.Cost(x,v);
     }
         
     return retVal;

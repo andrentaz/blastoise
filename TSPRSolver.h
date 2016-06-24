@@ -7,16 +7,12 @@
 #ifndef TSPRSOLVER_H
 #define TSPRSOLVER_H
 
-#include <list>
 #include <limits>
 #include <vector>
 #include <algorithm>
 
 #include "mygraphlib.h"
 #include "algoritmos.h"
-
-// Define an new type of iterator
-typedef std::list<DNode>::iterator literator;
 
 class TSPRSolver {
 public:
@@ -42,7 +38,8 @@ private:
     vector< DNode > tour;
     
     bool cook(TSP_Data_R& instance, const vector<DNode>& postos, int delta);
-    bool rerout(TSP_Data_R& instance, list<DNode>& list, const vector<DNode>& postos, DNode u, DNode v, double delta);
+    double rerout(TSP_Data_R& instance, vector<DNode>& ctour, const vector<DNode>& postos, DNode u, DNode v, double delta);
+    // literator rerout(TSP_Data_R& instance, list<DNode>& list, const vector<DNode>& postos, DNode u, DNode v, double delta);
 };
 
 #endif
