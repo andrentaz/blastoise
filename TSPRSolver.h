@@ -23,6 +23,7 @@ public:
         const vector<DNode> &postos,
         const DNode source,
         int delta,
+        double avg,
         const vector< double >& chromosome);
     virtual ~TSPRSolver();
     
@@ -37,7 +38,7 @@ private:
     double distance;
     vector< DNode > tour;
     
-    bool cook(TSP_Data_R& instance, const vector<DNode>& postos, int delta);
+    bool cook(TSP_Data_R& instance, const vector<DNode>& postos, int delta, double);
     double rerout(TSP_Data_R& instance, vector<DNode>& ctour, const vector<DNode>& postos, DNode u, DNode v, double delta);
     // literator rerout(TSP_Data_R& instance, list<DNode>& list, const vector<DNode>& postos, DNode u, DNode v, double delta);
 };

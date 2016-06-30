@@ -23,7 +23,8 @@ public:
         const vector<DNode> &terminais, 
         const vector<DNode> &postos,
         const DNode source,
-        int delta);
+        int delta,
+        double avg);
     virtual ~TSPRDecoder();
     
     // Decodes the chromosome into a solution to the TSP
@@ -35,6 +36,7 @@ private:
     const vector<DNode> &postos;    
     const DNode source;
     const int delta;
+    const double avg;
 };
 
 #endif

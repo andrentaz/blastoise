@@ -17,10 +17,10 @@ using namespace std;
 // Otimiza o problema TSP-R através de uma heurística baseada em BRKGA
 
 // Rodando com multiplas threads
-// #ifndef _OPENMP
-// #define _OPENMP
-// #include <omp>
-// #endif
+#ifndef _OPENMP
+#define _OPENMP
+#include <omp>
+#endif
 
 // Inclui a API do BRKGA
 #include <algorithm>
@@ -32,7 +32,8 @@ using namespace std;
 #include "TSPRSolver.h"
 
 bool check_feasible(vector<DNode> sol, TSP_Data_R &tsp, const vector<DNode> &terminais, const vector<DNode> &postos, 
-                    const DNode source, int delta); 
+                    const DNode source, int delta);
+double get_avg_dist(TSP_Data_R& tsp, const vector<DNode>& terminais, const vector<DNode>& postos);
 
 // ATENÇÃO: Não modifique a assinatura deste método.
 bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const vector<DNode> &postos,
@@ -43,21 +44,24 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
     const clock_t begin = clock();
     
     const DNode s = source;
+    
+    // Calcula a media da distancia entre um terminal e o posto mais proximo
+    double avg = get_avg_dist(tsp, terminais, postos);
 
     // Decoder
-    TSPRDecoder decoder(tsp, terminais, postos, source, delta);
+    TSPRDecoder decoder(tsp, terminais, postos, source, delta, avg);
 
     const long unsigned rngSeed = time(0);  // seed para gerar rand nums
     MTRand rng(rngSeed);    // gerador de numeros aleatoreos
 
     // caracteristicas do BRKGA
-    const unsigned n = terminais.size();    // tamanho dos chromossomos
+    const unsigned n = terminais.size()+1;    // tamanho dos chromossomos
     const unsigned p = 256;     // tamanho da populacao
     const double pe = 0.10;     // fracao da populao que sera elite
     const double pm = 0.10;     // fracao da populacao que sera mutante
     const double rhoe = 0.70;   // probabilidade de herdar do pai elite
     const unsigned K = 5;       // numero de populacoes independentes
-    const unsigned MAXT = 4;    // numero de threads para decode paralelo
+    const unsigned MAXT = 10;    // numero de threads para decode paralelo
 
     // inicializa a heuristica BRKGA
     BRKGA< TSPRDecoder, MTRand > algorithm(n, p, pe, pm, rhoe, decoder, rng, K, MAXT);
@@ -65,7 +69,7 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
     // BRKGA inner loop (evolution) configuration: Exchange top individuals
 	const unsigned X_INTVL = 100;	    // troca os melhores individuos a cada 100 geracoes
 	const unsigned X_NUMBER = 2;	    // troca os dois melhores
-	const unsigned MAX_GENS = 5000;	    // roda para 1000 geracoes 
+	const unsigned MAX_GENS = 2500;	    // roda para 2500 geracoes 
 
     // configuracao de evolucao do BRKGA: estrategia de restart
     unsigned relevantGeneration = 1;    // ultima geracao relevante
@@ -134,7 +138,8 @@ bool heuristica_hg999999(TSP_Data_R &tsp, const vector<DNode> &terminais, const 
 	}
 
     // Reconstroi a melhor solucao
-    TSPRSolver bestSolution (tsp, terminais, postos, s, delta, bestChromosome);
+    avg = get_avg_dist(tsp, terminais, postos);
+    TSPRSolver bestSolution (tsp, terminais, postos, s, delta, avg, bestChromosome);
     bool retVal;
 
     // Se encontrou solucao reconstroi
@@ -240,5 +245,26 @@ bool check_feasible(vector<DNode> sol, TSP_Data_R &tsp, const vector<DNode> &ter
     
     return retVal;
 }
+
+double get_avg_dist(TSP_Data_R& tsp, const vector<DNode>& terminais, const vector<DNode>& postos) {
+    double avg = 0.0;
+    
+    // pega a distancia do terminal ao posto mais proximo
+    for (auto t : terminais) {
+        double min = DBL_MAX;
+        // analisa cada posto
+        for (auto p : postos) {
+            if (tsp.AdjMatD.Cost(t,p) < min) {
+                min = tsp.AdjMatD.Cost(t,p);
+            }
+        }
+        // soma
+        avg += min;
+    }
+    
+    // calcula a média
+    return avg/terminais.size(); 
+}
+
 
 // ********** ALTERE DAQUI PARA CIMA (HEURISTICA GENETICA) *****************

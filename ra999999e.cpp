@@ -38,20 +38,109 @@ protected:
         if ((where==GRB_CB_MIPNODE) && (getIntInfo(GRB_CB_MIPNODE_STATUS)==GRB_OPTIMAL)){
             solution_value = &subtourelim::getNodeRel; }
         else return;
+        // ******* ALTERE DAQUI PARA BAIXO (BRANCH AND CUT) ********** //
+        // -----------------------------------------------------------------
+        // Guarda os arcos com valor fracionario e inteiro
+        vector<Edges> FracArcs, OneArcs;
+
+        // cria um subgrafo h com arestas com x[e]==1
+        // assim pode-se aplicar Gomory-Hu num grafo pequeno
+        ListDigraph::ArcMap<bool> one_filter(tsp.g, false);    // inicia sem nenhuma aresta
+        ListDigraph::ArcMap<bool> non_zero_filter(tsp.g, false); // inicia sem nenhuma aresta
+
+        for (ArcIt a(tsp.g); a!=INVALID; ++a) {
+            if ((this->*solution_value)(x[a]) > 1-MY_EPS)
+                OneArcs.push_back(a);    // guarda arcos com x[a]==1
+            else if((this->*solution)(x[a]) > MY_EPS) 
+                FracArcs.push_back(a);  // inclui arcos com valor 0 < x[a] < 1
+        } // define o subgrafo com arcos tais que x[a]==1
+
         try {
-            // ******* ALTERE DAQUI PARA BAIXO (BRANCH AND CUT) ********** //
             // Para obter os valores da solução fracionária:
-            for (ArcIt e(tsp.g); e != INVALID; ++e) {
-                (this->*solution_value)(x[e]); // valor fracionário da variável correspondente à aresta 'e'.
-            }
+            // for (ArcIt e(tsp.g); e != INVALID; ++e) {
+            //     (this->*solution_value)(x[e]); // valor fracionário da variável correspondente à aresta 'e'.
+            // }
 
             // Para inserir os cortes utilize addLazy().
 
-            // ******* ALTERE DAQUI PARA CIMA (BRANCH AND CUT) ********** //
+            // -----------------------------------------------------------------
+            // Utiliza union-find para contrair nos (obtem um grafo onde cada componente de g e contraida)
+            ListDigraph::NodeMap<int> aux_map(tsp.g);
+            UnionFind<ListDigraph::NodeMap<int> > UFNodes(auxmap);
+            for (NodeIt v(tsp.g); v!=INVALID; ++v) { 
+                UFNodes.insert(v);
+            }
+            for (vector<Arc>::iterator a_it=OneArcs.begin(); a_it!=OneArcs.end(); ++a_it) {
+                UFNodes.join(tsp.g.u(*a_it), tsp.g.v(*a_it));   // Sem problema se sao a mesma componente
+            }
+            // -----------------------------------------------------------------
+            // Coloca num conjunto separado todas as arestas que nao estao numa componente
+            vector<Arc> CrossingArcs;
+            for (ArcIt a(tsp.g); a!=INVALID; ++a) {
+                if (UFNodes.find(tsp.g.u(a)) != UFNodes.find(tsp.g.v(e)))
+                    CrossingArcs.push_back(a);
+            }
+
+            // -----------------------------------------------------------------
+            // Gera uma lista invertida UFIndexToNode para encontrar o no que representa a componente
+            vector<bool> ComponentIndex(tsp.NNodes);
+            vector<DNode> Index2h(tsp.NNodes);
+            for (int=0;i<tsp.NNodes;i++) {
+                ComponentIndex[i]=false;
+            }
+            for (NodeIt v(tsp.g); v!=INVALID; ++v) {
+                ComponentIndex[UFNodes.find(v)]=true;
+            }
+            // -----------------------------------------------------------------
+            // Gera um grafo de componentes, adiciona um no de cada componente e arcos
+            ListDigraph h;
+            ArcValueMap h_capacity(h);
+
+            for (int i=0;i<tsp.NNodes;++i) {
+                if (ComponentIndex[i]) {
+                    Index2h[i]=h.addNode();
+                }
+            }
+            for (vector<Arc>::iterator a_it=FracArcs.begin(); a_it != FracArcs.end(); ++a_it) {
+                    DNode u = tsp.g.u(*a_it);
+                    DNode v = tsp.g.v(*a_it);
+                    DNode hu = Index2h[UFNodes.find(u)];
+                    DNode hv = Index2h[UFNodes.find(v)];
+                    Arc a = h.addArc(hu, hv);   // Adiciona arcos para o grafo h
+                    h_capacity[a] = (this->*solution_value)(x[*a_it]);
+            }
+            // -----------------------------------------------------------------
+            GomoryHu<ListDigraph, ArcValueMap> ght(h, h_capacity);  ght.run();
+            // A arvore de Gomory-Hu e dada como um grafo direcionado com raiz, Cada no tem
+            // um arco que aponta para o seu pai. A raiz tem pai -1.
+            // Lembre que cada arco nesta arvore representa um corte e o valor do
+            // arco eh o peso do corte correspondente. Entao, se um arco tem peso
+            // menor do que 2, entao achamos um corte violado e nesse caso, inserimos
+            // a restricao correspondente
+            
+            NodeBoolMap cutmap(h);
+            for (NodeIt u(h); u!=INVALID; ++u) {
+                GRBLinExpr expr = 0;
+                if (ght.predNode(u)==INVALID) continue; // pula a raiz
+                if (ght.predValue(u) > 2.0 - MY_EPS) continue; // valor de corte permitido
+                ght.minCutMap(u, ght.predNode(u), cutmap);  // agora temos um corte que viola
+
+                // Percorre as arestas que cruzam alguma componente e insera as que pertencem ao corte
+                for (vector<Arc>::iterator a_it=CrossingArcs.begin(); a_it!=CrossingArcs.end(); ++a_it) {
+                    DNode u=tsp.g.u(*a_it), v=tsp.g.v(*a_it);
+                    DNode hu=Index2h[UFNodes.find(u)], hv=Index2h[UFNodes.find(v)];
+
+                    if (cutmap[hu]!=cutmap[hv]) {
+                        expr += x[a_it];
+                    }
+                }
+                addLazy( expr >= 2);
+            }
         }
         catch (...) {
             cout << "Error during callback..." << endl;
         }
+        // ******* ALTERE DAQUI PARA CIMA (BRANCH AND CUT) ********** //
     }
 };
 

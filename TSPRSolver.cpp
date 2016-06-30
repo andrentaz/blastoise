@@ -10,7 +10,7 @@ using namespace std;
 using namespace lemon;
 
 TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais, 
-    const vector<DNode>& postos, const DNode source, int delta, const vector< double >& chromosome) :
+    const vector<DNode>& postos, const DNode source, int delta, double avg, const vector< double >& chromosome) :
     distance(0) {
     
     vector< ValueKeyPair > rawtour;
@@ -18,7 +18,7 @@ TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais,
     // Assumes that instance.getNumNodes() == chromosome.size()
     
     // 1) Obtain a permutation out of the chromosome -- this is the raw tour:
-    for (unsigned i=0; i<chromosome.size(); ++i) { 
+    for (unsigned i=0; i<chromosome.size()-1; ++i) { 
         rawtour.push_back(ValueKeyPair(chromosome[i], i)); 
     }
     
@@ -33,7 +33,7 @@ TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais,
     this->tour.push_back(source);
     
     // 3) Transforms the rawtour in a feasible one
-    if (cook(instance, postos, delta)) {
+    if (cook(instance, postos, delta, avg*chromosome.back())) {
 
         // 4) Compute the distance of the tour given by the permutation and cooking
         for (unsigned i=1; i<this->tour.size(); ++i) {
@@ -52,7 +52,7 @@ TSPRSolver::TSPRSolver(TSP_Data_R& instance, const vector<DNode>& terminais,
 }
 
 /* Get the raw solution and turns into a feasible tour */
-bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta) {
+bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const int delta, double avg) {
     int fuelUsed = 0.0;
     bool retVal = true;
     vector<DNode> cooked;
@@ -69,7 +69,7 @@ bool TSPRSolver::cook(TSP_Data_R& instance, const vector<DNode>& postos, const i
         v = this->tour[i];
         
         // check the distance from the previous node
-        if (fuelUsed + instance.AdjMatD.Cost(u,v) < delta) {
+        if (fuelUsed + instance.AdjMatD.Cost(u,v) + avg < delta) {
             fuelUsed += instance.AdjMatD.Cost(u,v);
             cooked.push_back(v);
         } else {
