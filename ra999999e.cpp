@@ -40,22 +40,22 @@ protected:
         else return;
         // ******* ALTERE DAQUI PARA BAIXO (BRANCH AND CUT) ********** //
         // -----------------------------------------------------------------
-        // Guarda os arcos com valor fracionario e inteiro
-        vector<Edges> FracArcs, OneArcs;
-
-        // cria um subgrafo h com arestas com x[e]==1
-        // assim pode-se aplicar Gomory-Hu num grafo pequeno
-        ListDigraph::ArcMap<bool> one_filter(tsp.g, false);    // inicia sem nenhuma aresta
-        ListDigraph::ArcMap<bool> non_zero_filter(tsp.g, false); // inicia sem nenhuma aresta
-
-        for (ArcIt a(tsp.g); a!=INVALID; ++a) {
-            if ((this->*solution_value)(x[a]) > 1-MY_EPS)
-                OneArcs.push_back(a);    // guarda arcos com x[a]==1
-            else if((this->*solution)(x[a]) > MY_EPS) 
-                FracArcs.push_back(a);  // inclui arcos com valor 0 < x[a] < 1
-        } // define o subgrafo com arcos tais que x[a]==1
-
         try {
+            // Guarda os arcos com valor fracionario e inteiro
+            vector<Edges> FracArcs, OneArcs;
+
+            // cria um subgrafo h com arestas com x[e]==1
+            // assim pode-se aplicar Gomory-Hu num grafo pequeno
+            ListDigraph::ArcMap<bool> one_filter(tsp.g, false);    // inicia sem nenhuma aresta
+            ListDigraph::ArcMap<bool> non_zero_filter(tsp.g, false); // inicia sem nenhuma aresta
+
+            for (ArcIt a(tsp.g); a!=INVALID; ++a) {
+                if ((this->*solution_value)(x[a]) > 1-MY_EPS)
+                    OneArcs.push_back(a);    // guarda arcos com x[a]==1
+                else if((this->*solution)(x[a]) > MY_EPS) 
+                    FracArcs.push_back(a);  // inclui arcos com valor 0 < x[a] < 1
+            } // define o subgrafo com arcos tais que x[a]==1
+
             // Para obter os valores da solução fracionária:
             // for (ArcIt e(tsp.g); e != INVALID; ++e) {
             //     (this->*solution_value)(x[e]); // valor fracionário da variável correspondente à aresta 'e'.
@@ -75,6 +75,7 @@ protected:
             }
             // -----------------------------------------------------------------
             // Coloca num conjunto separado todas as arestas que nao estao numa componente
+            // (arestas que cruzam os arcos)
             vector<Arc> CrossingArcs;
             for (ArcIt a(tsp.g); a!=INVALID; ++a) {
                 if (UFNodes.find(tsp.g.u(a)) != UFNodes.find(tsp.g.v(e)))
@@ -82,7 +83,7 @@ protected:
             }
 
             // -----------------------------------------------------------------
-            // Gera uma lista invertida UFIndexToNode para encontrar o no que representa a componente
+            // Gera uma lista UFIndexToNode para encontrar o no que representa a componente
             vector<bool> ComponentIndex(tsp.NNodes);
             vector<DNode> Index2h(tsp.NNodes);
             for (int=0;i<tsp.NNodes;i++) {
@@ -136,6 +137,10 @@ protected:
                 }
                 addLazy( expr >= 2);
             }
+            
+            // -----------------------------------------------------------------
+            // Insere a restricao de sub caminho
+            // TODO
         }
         catch (...) {
             cout << "Error during callback..." << endl;
