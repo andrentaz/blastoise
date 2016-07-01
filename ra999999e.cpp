@@ -26,6 +26,12 @@ public:
 protected:
     void callback()
     {
+        // -----------------------------------------------------------------
+        // O metodo de callback tem duas funcoes:
+        // 1. ele tem que garantir que o circuito e conexo
+        // 2. ele tem que garantir que o caminho respeita a restricao de 
+        // distancia entre os postos
+        // -----------------------------------------------------------------
         if  (where==GRB_CB_MIPSOL) {
             // if mip solution (in this case, x is integer, ***but can be unconnected***)
             // getSolution is the function that obtain the values of x in MIPSOL
@@ -39,105 +45,150 @@ protected:
             solution_value = &subtourelim::getNodeRel; }
         else return;
         // ******* ALTERE DAQUI PARA BAIXO (BRANCH AND CUT) ********** //
-        // -----------------------------------------------------------------
         try {
-            // Guarda os arcos com valor fracionario e inteiro
-            vector<Edges> FracArcs, OneArcs;
-
-            // cria um subgrafo h com arestas com x[e]==1
-            // assim pode-se aplicar Gomory-Hu num grafo pequeno
-            ListDigraph::ArcMap<bool> one_filter(tsp.g, false);    // inicia sem nenhuma aresta
-            ListDigraph::ArcMap<bool> non_zero_filter(tsp.g, false); // inicia sem nenhuma aresta
-
-            for (ArcIt a(tsp.g); a!=INVALID; ++a) {
-                if ((this->*solution_value)(x[a]) > 1-MY_EPS)
-                    OneArcs.push_back(a);    // guarda arcos com x[a]==1
-                else if((this->*solution)(x[a]) > MY_EPS) 
-                    FracArcs.push_back(a);  // inclui arcos com valor 0 < x[a] < 1
-            } // define o subgrafo com arcos tais que x[a]==1
-
-            // Para obter os valores da solução fracionária:
-            // for (ArcIt e(tsp.g); e != INVALID; ++e) {
-            //     (this->*solution_value)(x[e]); // valor fracionário da variável correspondente à aresta 'e'.
-            // }
-
-            // Para inserir os cortes utilize addLazy().
+            // -----------------------------------------------------------------
+            // Cria um grafo representando cada um dos circuitos fechados
+            vector<Arc> FracArcs, OneArcs;
+            for (ArcIt a(tsp.g); a!=INVALID; ++a)
+            {
+                if (getSolution(x[a]) > 1-MY_EPS) 
+                {
+                    OneArcs.push_back(a);   // Arestas com valor x[a]==1
+                }
+                else if (getSolution(x[a]) > MY_EPS)
+                {
+                    FracArcs.push_back(a);  // Arestas com valores fracionarios
+                }
+            }   // definindo os subgrafos
 
             // -----------------------------------------------------------------
-            // Utiliza union-find para contrair nos (obtem um grafo onde cada componente de g e contraida)
-            ListDigraph::NodeMap<int> aux_map(tsp.g);
-            UnionFind<ListDigraph::NodeMap<int> > UFNodes(auxmap);
-            for (NodeIt v(tsp.g); v!=INVALID; ++v) { 
+            // Utiliza o algoritmo UnionFind para contrair as componentes conexas
+            Digraph::NodeMap<int> aux_map(tsp.g);
+            UnionFind<Digraph::NodeMap<int> > UFNodes(aux_map);
+            for (NodeIt v(tsp.g); v!=INVALID; ++v)
+            {
                 UFNodes.insert(v);
             }
-            for (vector<Arc>::iterator a_it=OneArcs.begin(); a_it!=OneArcs.end(); ++a_it) {
-                UFNodes.join(tsp.g.u(*a_it), tsp.g.v(*a_it));   // Sem problema se sao a mesma componente
+
+            // Cria aqui as componentes contraidas
+            for (vector<Arc>::iterator ait=OneArcs.begin(); ait!=OneArcs.end(); ++ait) 
+            {
+                // Mesmo se estiverem na mesma componente contraida
+                UFNodes.join(tsp.g.sourcenode(*ait),tsp.g.targetnode(*ait));
             }
-            // -----------------------------------------------------------------
-            // Coloca num conjunto separado todas as arestas que nao estao numa componente
-            // (arestas que cruzam os arcos)
+            
+            // Coloca num outro conjunto de arcos que cruzam as componentes
             vector<Arc> CrossingArcs;
-            for (ArcIt a(tsp.g); a!=INVALID; ++a) {
-                if (UFNodes.find(tsp.g.u(a)) != UFNodes.find(tsp.g.v(e)))
+            for (ArcIt a(tsp.g); a!=INVALID; ++a)
+            {
+                if (UFNodes.find(tsp.g.sourcenode(a)) != UFNodes.find(tsp.g.targetnode(a)))
+                {
                     CrossingArcs.push_back(a);
-            }
-
-            // -----------------------------------------------------------------
-            // Gera uma lista UFIndexToNode para encontrar o no que representa a componente
-            vector<bool> ComponentIndex(tsp.NNodes);
-            vector<DNode> Index2h(tsp.NNodes);
-            for (int=0;i<tsp.NNodes;i++) {
-                ComponentIndex[i]=false;
-            }
-            for (NodeIt v(tsp.g); v!=INVALID; ++v) {
-                ComponentIndex[UFNodes.find(v)]=true;
-            }
-            // -----------------------------------------------------------------
-            // Gera um grafo de componentes, adiciona um no de cada componente e arcos
-            ListDigraph h;
-            ArcValueMap h_capacity(h);
-
-            for (int i=0;i<tsp.NNodes;++i) {
-                if (ComponentIndex[i]) {
-                    Index2h[i]=h.addNode();
                 }
             }
-            for (vector<Arc>::iterator a_it=FracArcs.begin(); a_it != FracArcs.end(); ++a_it) {
-                    DNode u = tsp.g.u(*a_it);
-                    DNode v = tsp.g.v(*a_it);
+            // -----------------------------------------------------------------
+            // Gera uma lista para obter de maneira rapida o no que representa
+            // a componente
+            vector<bool> ComponentIndex(tsp.NNodes);
+            for (int i=0; i<tsp.NNodes; i++)
+            {
+                ComponentIndex = false;
+            }
+            for (NodeIt v(tsp.g); v!=INVALID; ++v)
+            {
+                ComponentIndex[UFNodes.find(v)] = true;
+            }
+            // -----------------------------------------------------------------
+            // Gera o grafo de componentes conexas, adiciona um super no e uma aresta
+            vector<DNode> Index2h(tsp.NNodes);
+            Digraph h;
+            ArcValueMap h_capacity(h);
+            for (int=0; i<tsp.NNodes; i++)
+            {
+                if (ComponentIndex[i])
+                {
+                    Index2h[i] = h.addNode();
+                }
+            }
+            for (vector<Arc>::iterator ait=FracArcs.begin(); ait!=FracArcs.end(); ++ait)
+            {
+                DNode u = tsp.g.sourcenode(*ait);
+                DNode v = tsp.g.targetnode(*ait);
+                DNode hu = Index2h[UFNodes.find(u)];
+                DNode hv = Index2h[UFNodes.find(v)];
+
+                Arc a = h.addArc(hu, hv);   // adiciona o arco ao grafo h
+                h_capacity[a] = getSolution(x[**ait]);
+            }
+            // -----------------------------------------------------------------
+            // Insere as restricoes de conexidade
+            Tolerance<double> tolerance;
+            HaoOrlin<Digraph, ArcValueMap, Tolerance<double> > hocut(h, h_capacity, tolerance);
+
+            // Inicia o corte e coloca 
+
+            // calcula o corte minimo de cada vertice de h (componente de g)
+            for (NodeIt u(h); u!=INVALID; ++u)
+            {
+                hocut.init(*u);
+                hocut.calculateOut();
+                Digraph::NodeMap<bool> outCutMap(h);
+
+                // pega o corte minimo de saida e o seu valor
+                double outcut = hocut.minCutMap(outCutMap);
+
+                hocut.init(*u);
+                hocut.calculateIn();
+                Digraph::NodeMap<bool> inCutMap(h);
+
+                // pega o corte minimo de entrada e o seu valor
+                double incut = hocut.minCutMap(inCutMap);
+
+                // Pula 
+                if (outcut > 1 - MY_EPS) 
+                    if (incut > 1 - MY_EPS)
+                        if (outcut - incut < MY_EPS)
+                            continue;   // o corte e valido
+                
+                // Trata o caso de um corte que viola a condicao
+                // Percorre os arcos que cruzam componentes e insere as que pertence ao corte de saida
+                GRBExpr exprout = 0;
+                for (vector<Arc>::iterator ait=CrossingArcs.begin(); ait!=CrossingArcs.end(); ++ait)
+                {
+                    DNode u = tsp.g.sourcenode(*ait);
+                    DNode v = tsp.g.targetnode(*ait);
                     DNode hu = Index2h[UFNodes.find(u)];
                     DNode hv = Index2h[UFNodes.find(v)];
-                    Arc a = h.addArc(hu, hv);   // Adiciona arcos para o grafo h
-                    h_capacity[a] = (this->*solution_value)(x[*a_it]);
-            }
-            // -----------------------------------------------------------------
-            GomoryHu<ListDigraph, ArcValueMap> ght(h, h_capacity);  ght.run();
-            // A arvore de Gomory-Hu e dada como um grafo direcionado com raiz, Cada no tem
-            // um arco que aponta para o seu pai. A raiz tem pai -1.
-            // Lembre que cada arco nesta arvore representa um corte e o valor do
-            // arco eh o peso do corte correspondente. Entao, se um arco tem peso
-            // menor do que 2, entao achamos um corte violado e nesse caso, inserimos
-            // a restricao correspondente
-            
-            NodeBoolMap cutmap(h);
-            for (NodeIt u(h); u!=INVALID; ++u) {
-                GRBLinExpr expr = 0;
-                if (ght.predNode(u)==INVALID) continue; // pula a raiz
-                if (ght.predValue(u) > 2.0 - MY_EPS) continue; // valor de corte permitido
-                ght.minCutMap(u, ght.predNode(u), cutmap);  // agora temos um corte que viola
 
-                // Percorre as arestas que cruzam alguma componente e insera as que pertencem ao corte
-                for (vector<Arc>::iterator a_it=CrossingArcs.begin(); a_it!=CrossingArcs.end(); ++a_it) {
-                    DNode u=tsp.g.u(*a_it), v=tsp.g.v(*a_it);
-                    DNode hu=Index2h[UFNodes.find(u)], hv=Index2h[UFNodes.find(v)];
-
-                    if (cutmap[hu]!=cutmap[hv]) {
-                        expr += x[a_it];
+                    // verifica quais arcos estao no corte de saida
+                    if (outCutMap[hu]!=outCutMap[hv])
+                    {
+                        exprout += x[*ait];
                     }
                 }
-                addLazy( expr >= 2);
+                addLazy( exprout >= 1);
+                
+                // Percorre os arcos que cruzam componentes e insere as que pertence ao corte de entrada
+                GRBExpr exprin = 0;
+                for (vector<Arc>::iterator ait=CrossingArcs.begin(); ait!=CrossingArcs.end(); ++ait)
+                {
+                    DNode u = tsp.g.sourcenode(*ait);
+                    DNode v = tsp.g.targetnode(*ait);
+                    DNode hu = Index2h[UFNodes.find(u)];
+                    DNode hv = Index2h[UFNodes.find(v)];
+
+                    // verifica quais arcos estao no corte de saida
+                    if (inCutMap[hu]!=inCutMap[hv])
+                    {
+                        exprin += x[*ait];
+                    }
+                }
+                addLazy( exprin >= 1);
+
+                // Por fim, faz com que o numero dos arcos que saem e os que entram sejam iguais
+                addLazy( exprout - exprin = 0);
+
             }
-            
             // -----------------------------------------------------------------
             // Insere a restricao de sub caminho
             // TODO
