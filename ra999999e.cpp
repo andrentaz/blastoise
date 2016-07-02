@@ -57,6 +57,7 @@ protected:
         else return;
         // ******* ALTERE DAQUI PARA BAIXO (BRANCH AND CUT) ********** //
         try {
+            cout << "INICIANDO CALLBACK" << endl;            
             // -----------------------------------------------------------------
             // Cria um grafo representando cada um dos circuitos fechados
             vector<Arc> FracArcs, OneArcs;
@@ -135,16 +136,17 @@ protected:
             // Inicia o corte e coloca 
 
             // calcula o corte minimo de cada vertice de h (componente de g)
-            for (Digraph::NodeIt u(h); u!=INVALID; ++u)
+            for (Digraph::NodeIt uit(h); uit!=INVALID; ++uit)
             {
-                hocut.init(*u);
+                DNode u(uit);
+                hocut.init(u);
                 hocut.calculateOut();
                 Digraph::NodeMap<bool> outCutMap(h);
 
                 // pega o corte minimo de saida e o seu valor
                 double outcut = hocut.minCutMap(outCutMap);
 
-                hocut.init(*u);
+                hocut.init(u);
                 hocut.calculateIn();
                 Digraph::NodeMap<bool> inCutMap(h);
 
@@ -193,7 +195,7 @@ protected:
                 addLazy( exprin >= 1);
 
                 // Por fim, faz com que o numero dos arcos que saem e os que entram sejam iguais
-                addLazy( exprout - exprin = 0);
+                addLazy( exprout - exprin == 0);
 
             }
             // -----------------------------------------------------------------
@@ -233,7 +235,7 @@ protected:
                 for (Digraph::OutArcIt ait(tsp.g,u); ait!=INVALID; ++ait)
                 {
                     // verifica se o arco esta na solucao
-                    Arc a = *ait;
+                    Arc a(ait);
                     if (active[a])
                     {
                         // soma a distancia percorrida
@@ -256,6 +258,7 @@ protected:
                     }
                 }
             }
+            cout << "TERMINANDO CALLBACK" << endl;
         }
         catch (...) {
             cout << "Error during callback..." << endl;
