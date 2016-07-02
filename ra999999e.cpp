@@ -7,6 +7,10 @@
 #include <float.h>
 #include <gurobi_c++.h>
 #include <lemon/list_graph.h>
+#include <lemon/unionfind.h>
+#include <lemon/hao_orlin.h>
+#include <lemon/adaptors.h>
+#include <lemon/connectivity.h>
 #include "mygraphlib.h"
 #include "algoritmos.h"
 
@@ -18,10 +22,17 @@ class subtourelim: public GRBCallback
 {
     TSP_Data_R &tsp;
     ListDigraph::ArcMap<GRBVar>& x;
+    
+    // Atributos para inserir restricoes de limite de caminho
+    const DNode source;
+    const vector<DNode> postos;
+    int delta;    
 
     double (GRBCallback::*solution_value)(GRBVar);
 public:
-    subtourelim(TSP_Data_R &tsp, ListDigraph::ArcMap<GRBVar>& x) : tsp(tsp),x(x)
+    subtourelim(TSP_Data_R &tsp, ListDigraph::ArcMap<GRBVar>& x, 
+        const DNode source, const vector<DNode> postos, int delta) 
+            : tsp(tsp),x(x),source(source),postos(postos),delta(delta)
     {    }
 protected:
     void callback()
@@ -64,8 +75,8 @@ protected:
             // -----------------------------------------------------------------
             // Utiliza o algoritmo UnionFind para contrair as componentes conexas
             Digraph::NodeMap<int> aux_map(tsp.g);
-            UnionFind<Digraph::NodeMap<int> > UFNodes(aux_map);
-            for (NodeIt v(tsp.g); v!=INVALID; ++v)
+            UnionFind< Digraph::NodeMap<int> > UFNodes(aux_map);
+            for (Digraph::NodeIt v(tsp.g); v!=INVALID; ++v)
             {
                 UFNodes.insert(v);
             }
@@ -74,14 +85,14 @@ protected:
             for (vector<Arc>::iterator ait=OneArcs.begin(); ait!=OneArcs.end(); ++ait) 
             {
                 // Mesmo se estiverem na mesma componente contraida
-                UFNodes.join(tsp.g.sourcenode(*ait),tsp.g.targetnode(*ait));
+                UFNodes.join(tsp.g.source(*ait),tsp.g.target(*ait));
             }
             
             // Coloca num outro conjunto de arcos que cruzam as componentes
             vector<Arc> CrossingArcs;
             for (ArcIt a(tsp.g); a!=INVALID; ++a)
             {
-                if (UFNodes.find(tsp.g.sourcenode(a)) != UFNodes.find(tsp.g.targetnode(a)))
+                if (UFNodes.find(tsp.g.source(a)) != UFNodes.find(tsp.g.target(a)))
                 {
                     CrossingArcs.push_back(a);
                 }
@@ -89,12 +100,8 @@ protected:
             // -----------------------------------------------------------------
             // Gera uma lista para obter de maneira rapida o no que representa
             // a componente
-            vector<bool> ComponentIndex(tsp.NNodes);
-            for (int i=0; i<tsp.NNodes; i++)
-            {
-                ComponentIndex = false;
-            }
-            for (NodeIt v(tsp.g); v!=INVALID; ++v)
+            vector<bool> ComponentIndex(tsp.NNodes, false);
+            for (Digraph::NodeIt v(tsp.g); v!=INVALID; ++v)
             {
                 ComponentIndex[UFNodes.find(v)] = true;
             }
@@ -103,7 +110,7 @@ protected:
             vector<DNode> Index2h(tsp.NNodes);
             Digraph h;
             ArcValueMap h_capacity(h);
-            for (int=0; i<tsp.NNodes; i++)
+            for (int i=0; i<tsp.NNodes; i++)
             {
                 if (ComponentIndex[i])
                 {
@@ -112,13 +119,13 @@ protected:
             }
             for (vector<Arc>::iterator ait=FracArcs.begin(); ait!=FracArcs.end(); ++ait)
             {
-                DNode u = tsp.g.sourcenode(*ait);
-                DNode v = tsp.g.targetnode(*ait);
+                DNode u = tsp.g.source(*ait);
+                DNode v = tsp.g.target(*ait);
                 DNode hu = Index2h[UFNodes.find(u)];
                 DNode hv = Index2h[UFNodes.find(v)];
 
                 Arc a = h.addArc(hu, hv);   // adiciona o arco ao grafo h
-                h_capacity[a] = getSolution(x[**ait]);
+                h_capacity[a] = getSolution(x[*ait]);
             }
             // -----------------------------------------------------------------
             // Insere as restricoes de conexidade
@@ -128,7 +135,7 @@ protected:
             // Inicia o corte e coloca 
 
             // calcula o corte minimo de cada vertice de h (componente de g)
-            for (NodeIt u(h); u!=INVALID; ++u)
+            for (Digraph::NodeIt u(h); u!=INVALID; ++u)
             {
                 hocut.init(*u);
                 hocut.calculateOut();
@@ -152,11 +159,11 @@ protected:
                 
                 // Trata o caso de um corte que viola a condicao
                 // Percorre os arcos que cruzam componentes e insere as que pertence ao corte de saida
-                GRBExpr exprout = 0;
+                GRBLinExpr exprout = 0;
                 for (vector<Arc>::iterator ait=CrossingArcs.begin(); ait!=CrossingArcs.end(); ++ait)
                 {
-                    DNode u = tsp.g.sourcenode(*ait);
-                    DNode v = tsp.g.targetnode(*ait);
+                    DNode u = tsp.g.source(*ait);
+                    DNode v = tsp.g.target(*ait);
                     DNode hu = Index2h[UFNodes.find(u)];
                     DNode hv = Index2h[UFNodes.find(v)];
 
@@ -169,11 +176,11 @@ protected:
                 addLazy( exprout >= 1);
                 
                 // Percorre os arcos que cruzam componentes e insere as que pertence ao corte de entrada
-                GRBExpr exprin = 0;
+                GRBLinExpr exprin = 0;
                 for (vector<Arc>::iterator ait=CrossingArcs.begin(); ait!=CrossingArcs.end(); ++ait)
                 {
-                    DNode u = tsp.g.sourcenode(*ait);
-                    DNode v = tsp.g.targetnode(*ait);
+                    DNode u = tsp.g.source(*ait);
+                    DNode v = tsp.g.target(*ait);
                     DNode hu = Index2h[UFNodes.find(u)];
                     DNode hv = Index2h[UFNodes.find(v)];
 
@@ -190,8 +197,65 @@ protected:
 
             }
             // -----------------------------------------------------------------
-            // Insere a restricao de sub caminho
-            // TODO
+            // Insere a restricao de sub caminho -------------------------------
+            // -----------------------------------------------------------------
+            // Mapeia as arestas da solucao
+            int uncovered = 0;
+            Digraph::ArcMap<bool> active(tsp.g);
+            for (ArcIt a(tsp.g); a!=INVALID; ++a)
+            {
+                if (getSolution(x[a]) > 1 - MY_EPS)
+                {
+                    active[a] = true;
+                    uncovered++;
+                }
+                else
+                {
+                    active[a] = false;
+                }
+            }
+            
+            // Mapeia os postos
+            Digraph::NodeMap<bool> stations(tsp.g, false);
+            for (auto p : postos)
+            {
+                stations[p] = true;
+            }
+            // -----------------------------------------------------------------
+            // Percorre os caminhos e insere as restricoes de consumo
+            GRBLinExpr expr = 0;
+            DNode u = source;
+            while (uncovered > 0)
+            {
+                // u := vertice atual
+                // v := vertice destino
+                // a := arco percorrido
+                for (Digraph::OutArcIt ait(tsp.g,u); ait!=INVALID; ++ait)
+                {
+                    // verifica se o arco esta na solucao
+                    Arc a = *ait;
+                    if (active[a])
+                    {
+                        // soma a distancia percorrida
+                        expr += x[a]*tsp.weight[a];
+                        
+                        // verifica se o node destino e um posto
+                        DNode v = tsp.g.target(a);
+                        if (stations[v])
+                        {
+                            // se for um posto, termina aqui uma restricao de consumo
+                            addLazy( expr <= delta);
+                            expr = 0;
+                        }
+                        
+                        // atualiza o valor do vertice atual e diminui as arestas
+                        // que ainda nao foram cobertas
+                        u = v;
+                        uncovered--;
+                        break;                        
+                    }
+                }
+            }
         }
         catch (...) {
             cout << "Error during callback..." << endl;
@@ -260,7 +324,7 @@ bool brach_and_bound999999(TSP_Data_R &tsp, const vector<DNode> &terminais, cons
         model.update(); // Process any pending model modifications.
         if (maxTime >= 0) model.getEnv().set(GRB_DoubleParam_TimeLimit,maxTime);
 
-        subtourelim cb = subtourelim(tsp , x);
+        subtourelim cb = subtourelim(tsp , x, source, postos, delta);
         model.setCallback(&cb);
 
         // TODO: [Opcional] Pode-se utilizar o valor de uma solução heurística p/ acelerar o algoritmo B&B (cutoff value).
