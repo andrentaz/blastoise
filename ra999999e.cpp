@@ -133,6 +133,18 @@ protected:
             Edge a = h.addEdge(hu , hv );         // add edges to the graph h
             h_capacity[a] = (this->*solution_value)(x[*e_it]);
         }
+        // create a map to terminals
+        NodeBoolMap HasTerminal(h);
+        for (NodeIt uit(tsp.g); uit!=INVALID; ++uit)
+        {
+            // if it is not a station
+            if(!postos[uit]) 
+            {
+                HasTerminal[Index2h[UFNodes.find(uit)]] = true;
+            }
+        }
+        // add the source to the 'terminal'
+        HasTerminal[Index2h[UFNodes.find(source)]] = true;
         // --------------------------------------------------------------------------------
         GomoryHu<ListGraph, EdgeValueMap> ght(h, h_capacity);   ght.run();
         // The Gomory-Hu tree is given as a rooted directed tree. Each node has
@@ -147,16 +159,22 @@ protected:
             GRBLinExpr expr = 0;
             if (ght.predNode(u)==INVALID) continue; // skip the root node
             if (ght.predValue(u) > 2.0 - MY_EPS) continue; // value of the cut is good
-            ght.minCutMap(u, ght.predNode(u), cutmap);  // now, we have a violated cut
-        
-            // Percorre as arestas que cruzam alguma componente e insere as que pertencem ao corte
-            for (vector<Edge>::iterator e_it=CrossingEdges.begin();e_it!=CrossingEdges.end();++e_it){
-                Node u=tsp.g.u(*e_it), v=tsp.g.v(*e_it),
-                hu = Index2h[UFNodes.find(u)], hv=Index2h[UFNodes.find(v)];
-                if (cutmap[hu] != cutmap[hv])
-                expr += x[*e_it];
+            
+            // this cut violate this conditions
+            // check if there is a terminal in both components
+            if (HasTerminal[u] && HasTerminal[ght.predNode(u)])
+            {
+                ght.minCutMap(u, ght.predNode(u), cutmap);  // now, we have a violated cut
+            
+                // Percorre as arestas que cruzam alguma componente e insere as que pertencem ao corte
+                for (vector<Edge>::iterator e_it=CrossingEdges.begin();e_it!=CrossingEdges.end();++e_it){
+                    Node u=tsp.g.u(*e_it), v=tsp.g.v(*e_it),
+                    hu = Index2h[UFNodes.find(u)], hv=Index2h[UFNodes.find(v)];
+                    if (cutmap[hu] != cutmap[hv])
+                    expr += x[*e_it];
+                }
+                addLazy( expr >= 2 );
             }
-            addLazy( expr >= 2 );
         }
 
         // Insere a restricao de sub caminho -------------------------------
@@ -238,6 +256,47 @@ protected:
 };
 
 // ********** ALTERE DAQUI PARA BAIXO (MÉTODO BRANCH & BOUND/CUT) *****************
+// -----------------------------------------------------------------------------
+// Converte a solucao do PLI para um vetor de arestas
+bool convertSol(ListGraph::EdgeMap<GRBVar> &x, vector<DNode> &sol, TSP_Data_R &tsp, TSP_Data &utsp, Node u, EdgeBoolMap &cover, int uncovered)
+{
+    
+    if (uncovered==0)
+        return true;
+
+    bool changed = false;
+    for (IncEdgeIt e(utsp.g, u); e!=INVALID; ++e)
+    {
+        if (BinaryIsOne(x[e].get((GRB_DoubleAttr_X))))
+        {
+            if (cover[e]) 
+            {
+                // get the nodes id
+                Node v = utsp.g.v(e);
+                if (u == v)
+                {
+                    v = utsp.g.u(e);
+                }
+
+                // push the solution
+                sol.push_back(tsp.g.nodeFromId(utsp.g.id(v)));
+                cover[e] = false;
+                uncovered--;
+                changed = convertSol(x, sol, tsp, utsp, v, cover, uncovered);
+                if (!changed)
+                {
+                    cover[e] = true;
+                    sol.pop_back();
+                    uncovered++;
+                }
+            }
+        }
+    }
+
+    return changed;
+}
+
+
 // -----------------------------------------------------------------------------
 // Obs: As variáveis e restrições abaixo são apenas exemplo e não necessariamente deverão ser usadas no laboratório.
 
@@ -379,25 +438,47 @@ bool brach_and_bound999999(TSP_Data_R &tsp, const vector<DNode> &terminais, cons
         }
 
         double custo_solucao = model.get(GRB_DoubleAttr_ObjVal);
+        
+        int uncovered=0;
+        EdgeBoolMap cover(utsp.g, false);
+        for (EdgeIt e(utsp.g); e!=INVALID; ++e)
+        {
+            if (BinaryIsOne(x[e].get(GRB_DoubleAttr_X)))
+            {
+                cover[e] = true;
+                uncovered++;
+            }
+        }
+        sol.push_back(tsp.g.nodeFromId(utsp.g.id(usource)));        
+        convertSol(x, sol, tsp, utsp, usource, cover, uncovered);
 
         // Calculo manual do custo da solução (deve ser igual ao ObjVal do Gurobi).
         double soma=0.0;
-        vector<Arc> edgesSol;
         ArcName aname(tsp.g);
+        vector<Arc> edgesSol;
         ArcColorMap acolor(tsp.g);
+        // if( verbose ) cout << "####### " << endl << "Edges of Solution (B&B):" << endl;
+        // for (EdgeIt e(utsp.g); e!=INVALID; ++e){
+        //     if (BinaryIsOne(x[e].get(GRB_DoubleAttr_X))){ // Note que se este método serve para variáveis binárias, p/ inteiras terá de usar outro método.
+        //         soma += utsp.weight[e];
+        //         edgesSol.push_back(tsp.g.arcFromId(utsp.g.id(e)));
+        //         if( verbose) cout << "(" << tsp.vname[tsp.g.nodeFromId(utsp.g.id(utsp.g.u(e)))] << "," << tsp.vname[tsp.g.nodeFromId(utsp.g.id(utsp.g.v(e)))] << ")" << endl;
+        //         acolor[tsp.g.arcFromId(utsp.g.id(e))] = BLUE;
+        //     }
+        // }
+        // if( verbose ) cout << "####### " << endl;
         if( verbose ) cout << "####### " << endl << "Edges of Solution (B&B):" << endl;
-        for (EdgeIt e(utsp.g); e!=INVALID; ++e){
-            if (BinaryIsOne(x[e].get(GRB_DoubleAttr_X))){ // Note que se este método serve para variáveis binárias, p/ inteiras terá de usar outro método.
-                soma += utsp.weight[e];
-                edgesSol.push_back(tsp.g.arcFromId(utsp.g.id(e)));
-                if( verbose) cout << "(" << tsp.vname[tsp.g.nodeFromId(utsp.g.id(utsp.g.u(e)))] << "," << tsp.vname[tsp.g.nodeFromId(utsp.g.id(utsp.g.v(e)))] << ")" << endl;
-                acolor[tsp.g.arcFromId(utsp.g.id(e))] = BLUE;
-            }
+        DNode u = sol[0];
+        for (int i=1; i<sol.size(); i++) 
+        {
+            DNode v = sol[i];
+            soma += tsp.AdjMatD.Cost(u,v);
+            if ( verbose ) cout << "(" << tsp.vname[u] << "," << tsp.vname[v] << ")" << endl;
+            u = v;
         }
         if( verbose ) cout << "####### " << endl;
 
         if( verbose ) cout << "Custo calculado pelo B&B = "<< soma << " / " << custo_solucao << endl;
-        sol = path_search(tsp, source, edgesSol);
         if( verbose ){
             cout << "Caminho encontrado a partir do vértice de origem (" << tsp.vname[source] << "): ";
             for(auto node : sol){
